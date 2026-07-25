@@ -1,18 +1,37 @@
+version: "3.8"
+
 services:
-  postgres_db:
+  # 1. Operational Source DB (The Black-Box E-commerce Backend)
+  postgres_oltp:
     image: postgres:17
-    container_name: postgres
+    container_name: olist_postgres_oltp
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_DB: oltp_db
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_oltp_data:/var/lib/postgresql/data
     networks:
       - pg_network
 
+  # 2. Analytics Target DB (For student use later)
+  postgres_analytics:
+    image: postgres:17
+    container_name: olist_postgres_analytics
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: analytics_db
+    ports:
+      - "5433:5432" # Accessible on your host machine at localhost:5433
+    volumes:
+      - postgres_analytics_data:/var/lib/postgresql/data
+    networks:
+      - pg_network
+
+  # 3. Database Management UI
   pgadmin:
     image: dpage/pgadmin4:8.4
     container_name: pgadmin
@@ -22,10 +41,12 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      - postgres_db
+      - postgres_oltp
+      - postgres_analytics
     networks:
       - pg_network
 
+  # 4. Object Storage Data Lake
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     container_name: minio
@@ -42,8 +63,45 @@ services:
     networks:
       - pg_network
 
+  # 5. Webhook Receiver (FastAPI)
+  fastapi:
+    build: ./fastapi_app
+    container_name: olist_fastapi
+    ports:
+      - "8000:8000"
+    environment:
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      BRONZE_BUCKET: "01-bronze"
+    depends_on:
+      - minio
+    networks:
+      - pg_network
+
+  # 6. Background Data Producer (Time-Travel Engine)
+  producer:
+    build: ./producer
+    container_name: olist_producer
+    environment:
+      POSTGRES_HOST: "postgres_oltp"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: oltp_db
+      FASTAPI_URL: "http://fastapi:8000/api/v1/payments/webhook"
+      SIM_SPEED: "3600" # 1 real sec = 1 sim hour
+    depends_on:
+      - postgres_oltp
+      - fastapi
+    volumes:
+      - ./data:/app/data
+    networks:
+      - pg_network
+
 volumes:
-  postgres_data:
+  postgres_oltp_data:
+    driver: local
+  postgres_analytics_data:
     driver: local
   minio_data:
     driver: local
