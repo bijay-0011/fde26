@@ -1,0 +1,83 @@
+import io
+import os
+import boto3
+import pandas as pd
+from botocore.client import Config
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List, Dict, Any
+
+from s3_config import *
+
+app = FastAPI(
+    title="Olist Ingestion Webhook Receiver",
+    version="1.0.0",
+    description="Ingestion gateway landing raw operational streams into MinIO Bronze Layer."
+)
+
+
+s3_client = get_s3_client()
+if not test_connection(s3_client):
+    sys.exit(1)
+ensure_bucket_exists(s3_client,BRONZE_BUCKET)
+
+# ---------------------------------------------------------
+# Pydantic Models for Validation
+# ---------------------------------------------------------
+class WebhookPayload(BaseModel):
+    source_table: str
+    records: List[Dict[str, Any]]
+
+# ---------------------------------------------------------
+# API Endpoints
+# ---------------------------------------------------------
+@app.get("/")
+def health_check():
+    return {
+        "status": "healthy",
+        "storage_backend": "MinIO",
+        "target_bronze_bucket": BRONZE_BUCKET
+    }
+
+@app.post("/api/v1/webhook/{source_table}")
+def receive_streaming_webhook(source_table: str, payload: WebhookPayload):
+    """
+    Unified production webhook receiver. Catches batch payloads, serializes them 
+    into optimized Parquet files in-memory, and lands them into the MinIO Bronze Lake.
+    """
+    try:
+        if not payload.records:
+            return {
+                "status": "success", 
+                "source_table": source_table, 
+                "inserted_records": 0,
+                "message": "Payload was empty. No file written."
+            }
+
+        # Convert dictionary records to a structured pandas DataFrame
+        df = pd.DataFrame(payload.records)
+        
+        # Serialize DataFrame directly to memory buffer as Parquet
+        buffer = io.BytesIO()
+        df.to_parquet(buffer, index=False)
+        buffer.seek(0)
+        
+        # Structure path cleanly by source domain with high-precision timestamp to prevent collisions
+        file_name = f"{source_table}/batch_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S_%f')}.parquet"
+        
+        # Stream upload to MinIO
+        s3_client.upload_fileobj(buffer, BRONZE_BUCKET, file_name)
+        
+        print(f"📥 [Bronze Landing - {source_table}] Successfully ingested {len(df)} rows -> s3://{BRONZE_BUCKET}/{file_name}")
+        
+        return {
+            "status": "success",
+            "source_table": source_table,
+            "inserted_records": len(df),
+            "destination_path": f"s3://{BRONZE_BUCKET}/{file_name}"
+        }
+
+    except Exception as e:
+        error_msg = f"Webhook processing failed for '{source_table}': {str(e)}"
+        print(f"❌ {error_msg}")
+        raise HTTPException(status_code=500, detail=error_msg)

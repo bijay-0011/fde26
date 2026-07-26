@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS orders (
     order_estimated_delivery_date TIMESTAMP,
     CONSTRAINT fk_orders_customers
         FOREIGN KEY (customer_id)
-        REFERENCES customers (customers_id)
+        REFERENCES customers (customer_id)
 );
 
 CREATE TABLE IF NOT EXISTS order_items (
@@ -71,4 +71,4 @@ CREATE TABLE IF NOT EXISTS order_items (
 -- ==============================================================================
 -- Index the timestamp column since the producer will constantly query it 
 -- to slice time windows, and the downstream pipeline will query it for watermarks.
-CREATE INDEX idx_orders_purchase_timestamp ON orders(order_purchase_timestamp);
+CREATE INDEX IF NOT EXISTS idx_orders_purchase_timestamp ON orders(order_purchase_timestamp);
