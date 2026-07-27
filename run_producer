@@ -2,17 +2,25 @@
 
 SESSION="fde26_producer"
 
-# 1. Create tmux session in detached mode if it doesn't exist
-tmux has-session -t $SESSION 2>/dev/null
+# 1. Clean up any previous session to start fresh
+tmux kill-session -t "$SESSION" 2>/dev/null
 
-if [ $? != 0 ]; then
-  tmux new-session -d -s $SESSION "source .myenv/bin/activate && uvicorn producer.app.main:app --reload --port 8000"
-  tmux split-window -h -t $SESSION "source .myenv/bin/activate && sleep 2 && python -m producer.simulate.main"
-  tmux select-pane -t 0
-fi
+# 2. Create session & launch FastAPI on the left
+tmux new-session -d -s "$SESSION" \
+  "bash -c 'source .myenv/bin/activate && uvicorn producer.app.main:app --reload --port 8000; exec bash'"
 
-# 2. Spawn a new native window in background (wt.exe = Windows Terminal, fallback = default WSL window)
-cmd.exe /c start wt.exe wsl.exe -e tmux attach-session -t $SESSION 2>/dev/null || \
-cmd.exe /c start wsl.exe -e tmux attach-session -t $SESSION 2>/dev/null
+# 3. Split window horizontally & launch Simulator on the right
+tmux split-window -h -t "$SESSION" \
+  "bash -c 'source .myenv/bin/activate && sleep 2 && python -m producer.simulate.main; exec bash'"
+
+# 4. Auto-kill tmux session when you close the attached terminal window (X)
+tmux set-hook -t "$SESSION" client-detached 'kill-session'
+
+# 5. Focus left pane
+tmux select-pane -t "$SESSION:0.0"
+
+# 6. Launch in a brand-new native terminal window
+cmd.exe /c start wt.exe wsl.exe -e tmux attach-session -t "$SESSION" 2>/dev/null || \
+cmd.exe /c start wsl.exe -e tmux attach-session -t "$SESSION" 2>/dev/null
 
 echo "🚀 Producer launched in a new native terminal window!"
