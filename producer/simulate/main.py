@@ -3,13 +3,14 @@ import time
 import logging
 import pandas as pd
 from datetime import timedelta
-from dotenv import load_dotenv
 
-# Load env variables BEFORE importing custom modules
+from dotenv import load_dotenv
 load_dotenv(override=True)
 
-from db_ops import init_schema, seed_master_tables, get_latest_order_time, insert_orders_transaction
-from webhooks import send_webhook
+from config_loader import CONFIG
+
+from producer.simulate.db_ops import init_schema, seed_master_tables, get_latest_order_time, insert_orders_transaction
+from producer.simulate.webhooks import send_webhook
 
 # ---------------------------------------------------------
 # Configuration Setup
@@ -21,9 +22,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-SIM_SPEED = int(os.getenv("SIM_SPEED", 3600))
-DATA_DIR = "/home/vijay/fde26/data"
-PRELOAD_WATERMARK = pd.to_datetime("2017-01-15 00:00:00")
+SIM_SPEED = int(CONFIG["simulation"]["sim_speed"])
+DATA_DIR = CONFIG["simulation"]["data_dir"]
+PRELOAD_WATERMARK = pd.to_datetime(CONFIG["simulation"]["preload_watermark"])
 
 def load_streaming_datasets():
     logger.info("Loading streaming datasets into memory...")

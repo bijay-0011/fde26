@@ -3,22 +3,31 @@ import logging
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
+from dotenv import load_dotenv
+load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
 
-# Setup Engine
-DB_USER = os.getenv("POSTGRES_USER", "postgres")
-DB_PASS = os.getenv("POSTGRES_PASSWORD", "postgrespassword")
-DB_HOST = os.getenv("POSTGRES_HOST", "postgres_oltp")
-DB_NAME = os.getenv("POSTGRES_DB_OLTP", "oltp_db")
-DB_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+from config_loader import CONFIG
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+INIT_SQL_PATH = os.path.join(CURRENT_DIR, "init.sql")
+
+# Database connection parameters pulled directly from unified config
+DB_USER = CONFIG["database"]["oltp"]["user"]
+DB_PASS = CONFIG["database"]["oltp"]["password"]
+DB_HOST = CONFIG["database"]["oltp"]["host"]
+DB_PORT = CONFIG["database"]["oltp"]["port"]
+DB_NAME = CONFIG["database"]["oltp"]["name"]
+DB_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+print(DB_URL)
 
 engine = create_engine(DB_URL, pool_pre_ping=True)
 
 def init_schema():
     logger.info("Initializing database schema...")
     try:
-        with open("./producer/init.sql", "r") as file:
+        with open(INIT_SQL_PATH, "r") as file:
             sql_script = file.read()
         with engine.begin() as conn:
             conn.execute(text(sql_script))

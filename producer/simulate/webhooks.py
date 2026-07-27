@@ -3,11 +3,14 @@ import logging
 import requests
 import pandas as pd
 import numpy as np
+from dotenv import load_dotenv
+load_dotenv(override=True)
 
+from config_loader import CONFIG
 # Set up logging for this module
 logger = logging.getLogger(__name__)
 
-FASTAPI_URL = os.getenv("FASTAPI_URL", "http://localhost:8000")
+FASTAPI_URL = CONFIG["api"]["fastapi_url"]
 
 # Optimization: Use a Session to reuse TCP connections across thousands of requests
 http_session = requests.Session()

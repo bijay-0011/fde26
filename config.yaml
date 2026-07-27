@@ -1,0 +1,49 @@
+# ---------------------------------------------------------
+# Unified Global Configuration
+# Resolves environment variables from .env with container fallbacks
+# ---------------------------------------------------------
+
+simulation:
+  sim_speed: 3600
+  preload_watermark: "2017-01-15 00:00:00"
+  data_dir: "./producer/data"
+
+database:
+  oltp:
+    host: "${POSTGRES_HOST}"
+    port: "${POSTGRES_PORT}"
+    name: "${POSTGRES_DB_OLTP}"
+    user: "${POSTGRES_USER}"
+    password: "${POSTGRES_PASSWORD}"
+  analytics:
+    host: "${POSTGRES_HOST}"
+    port: "${POSTGRES_PORT}"
+    name: "${POSTGRES_DB_ANALYTICS}"
+    user: "${POSTGRES_USER}"
+    password: "${POSTGRES_PASSWORD}"
+
+pgadmin:
+  email: "${PGADMIN_EMAIL}"
+  password: "${PGADMIN_PASSWORD}"
+
+api:
+  fastapi_url: "${FASTAPI_URL}"
+
+storage:
+  minio_endpoint: "${MINIO_ENDPOINT:minio:9090}"
+  minio_root_user: "${MINIO_ROOT_USER}"
+  minio_root_password: "${MINIO_ROOT_PASSWORD}"
+  # Uses root user/password if access/secret keys are left empty in .env
+  minio_access_key: "${MINIO_ACCESS_KEY}"
+  minio_secret_key: "${MINIO_SECRET_KEY}"
+  shared_bucket: "${SHARED_BUCKET}"
+
+datasets:
+  orders: "olist_orders_dataset.csv"
+  items: "olist_order_items_dataset.csv"
+  payments: "olist_order_payments_dataset.csv"
+  reviews: "olist_order_reviews_dataset.csv"
+  master_tables:
+    customers: "olist_customers_dataset.csv"
+    products: "olist_products_dataset.csv"
+    sellers: "olist_sellers_dataset.csv"

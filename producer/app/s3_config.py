@@ -6,17 +6,26 @@ import sys
 import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError, EndpointConnectionError
+
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
+from config_loader import CONFIG
+
 # ---- Configuration ----
-MINIO_ENDPOINT = "http://localhost:9090"   # MinIO S3 API endpoint (host port; container still uses 9000 internally)
-MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")
-MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY")
+RAW_ENDPOINT = CONFIG["storage"]["minio_endpoint"]
+MINIO_ACCESS_KEY = CONFIG["storage"]["minio_access_key"]
+MINIO_SECRET_KEY = CONFIG["storage"]["minio_secret_key"]
 MINIO_REGION = "us-east-1"                 # MinIO ignores the value but boto3 requires one
 MINIO_SECURE = False                       # True if endpoint uses https
-BRONZE_BUCKET = os.getenv("BRONZE_BUCKET")
+SHARED_BUCKET = CONFIG["storage"]["shared_bucket"]
 
+# Ensure endpoint has http:// or https:// for boto3
+if not RAW_ENDPOINT.startswith("http://") and not RAW_ENDPOINT.startswith("https://"):
+    scheme = "https://" if MINIO_SECURE else "http://"
+    MINIO_ENDPOINT = f"{scheme}{RAW_ENDPOINT}"
+else:
+    MINIO_ENDPOINT = RAW_ENDPOINT
 
 def get_s3_client(
     endpoint_url: str = MINIO_ENDPOINT,
@@ -58,7 +67,7 @@ def test_connection(client) -> bool:
         return False
 
 
-def ensure_bucket_exists(client, bucket_name: str = BRONZE_BUCKET) -> bool:
+def ensure_bucket_exists(client, bucket_name: str = SHARED_BUCKET) -> bool:
     """Check if a bucket exists; create it if it doesn't. Returns True on success."""
     try:
         client.head_bucket(Bucket=bucket_name)
@@ -78,11 +87,17 @@ def ensure_bucket_exists(client, bucket_name: str = BRONZE_BUCKET) -> bool:
             print(f"Error checking bucket '{bucket_name}': {e}")
             return False
 
+# Shared client instance
+s3_client = get_s3_client()
 
-if __name__ == "__main__":
-    s3 = get_s3_client()
+# Run bootstrap check on import when FastAPI initializes
+if test_connection(s3_client):
+    ensure_bucket_exists(s3_client, SHARED_BUCKET)
+    
+# if __name__ == "__main__":
+#     s3 = get_s3_client()
 
-    if not test_connection(s3):
-        sys.exit(1)
+#     if not test_connection(s3):
+#         sys.exit(1)
 
-    ensure_bucket_exists(s3, BRONZE_BUCKET)
+#     ensure_bucket_exists(s3, SHARED_BUCKET)

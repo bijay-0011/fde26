@@ -1,5 +1,7 @@
 services:
+  # ---------------------------------------------------------
   # 1. Operational Source DB (The Black-Box E-commerce Backend)
+  # ---------------------------------------------------------
   postgres_oltp:
     image: postgres:17
     container_name: olist_postgres_oltp
@@ -9,12 +11,19 @@ services:
       POSTGRES_DB: oltp_db
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d oltp_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     volumes:
       - postgres_oltp_data:/var/lib/postgresql/data
     networks:
       - pg_network
 
+  # ---------------------------------------------------------
   # 2. Analytics Target DB (For student use later)
+  # ---------------------------------------------------------
   postgres_analytics:
     image: postgres:17
     container_name: olist_postgres_analytics
@@ -23,13 +32,15 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: analytics_db
     ports:
-      - "5433:5432" # Accessible on your host machine at localhost:5433
+      - "5433:5432"
     volumes:
       - postgres_analytics_data:/var/lib/postgresql/data
     networks:
       - pg_network
 
+  # ---------------------------------------------------------
   # 3. Database Management UI
+  # ---------------------------------------------------------
   pgadmin:
     image: dpage/pgadmin4:8.4
     container_name: pgadmin
@@ -44,64 +55,30 @@ services:
     networks:
       - pg_network
 
+  # ---------------------------------------------------------
   # 4. Object Storage Data Lake
+  # ---------------------------------------------------------
   minio:
     image: pgsty/minio:latest
     container_name: minio
     restart: unless-stopped
     ports:
-      - "9090:9000"   
+      - "9090:9000"
       - "9001:9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     volumes:
       - minio_data:/data
     networks:
       - pg_network
-
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-      start_period: 10s
-
-  # 5. Webhook Receiver (FastAPI)
-  # fastapi:
-  #   build: ./fastapi_app
-  #   container_name: olist_fastapi
-  #   ports:
-  #     - "8000:8000"
-  #   environment:
-  #     MINIO_ENDPOINT: "minio:9000"
-  #     MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-  #     MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
-  #     BRONZE_BUCKET: "01-bronze"
-  #   depends_on:
-  #     - minio
-  #   networks:
-  #     - pg_network
-
-  # 6. Background Data Producer (Time-Travel Engine)
-  # producer:
-  #   build: ./producer
-  #   container_name: olist_producer
-  #   environment:
-  #     POSTGRES_HOST: "postgres_oltp"
-  #     POSTGRES_USER: ${POSTGRES_USER}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  #     POSTGRES_DB: oltp_db
-  #     FASTAPI_URL: "http://fastapi:8000/api/v1/payments/webhook"
-  #     SIM_SPEED: "3600" # 1 real sec = 1 sim hour
-  #   depends_on:
-  #     - postgres_oltp
-  #     - fastapi
-  #   volumes:
-  #     - ./data:/app/data
-  #   networks:
-  #     - pg_network
 
 volumes:
   postgres_oltp_data:
