@@ -5,3 +5,4 @@
 **/__pycache__/
 extractor
 producer/data
+loader/
