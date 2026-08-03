@@ -1,18 +1,17 @@
 services:
-  # ---------------------------------------------------------
   # 1. Operational Source DB (The Black-Box E-commerce Backend)
-  # ---------------------------------------------------------
+  # ________________________________________________________________________________________
   postgres_oltp:
     image: postgres:17
-    container_name: olist_postgres_oltp
+    container_name: postgres_oltp
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: oltp_db
+      POSTGRES_DB: ${POSTGRES_DB_OLTP}
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d oltp_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB_OLTP}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -20,44 +19,71 @@ services:
       - postgres_oltp_data:/var/lib/postgresql/data
     networks:
       - pg_network
+  api:
+    image: python:3.12-slim
+    container_name: api
+    ports:
+      - "8001:8001"
+    volumes:
+      # Mount data folder containing your .db file
+      - ./producer/data:/app/data:ro
+      # Mount the FastAPI script
+      - ./producer/app/api.py:/app/api.py:ro
+    command: >
+      bash -c "pip install --no-cache-dir fastapi uvicorn && 
+                uvicorn api:app --host 0.0.0.0 --port 8001 --app-dir /app"
+    restart: unless-stopped
+    
+  # You Donot need to worry about these 2 container. Their sole purpose is to fasilate the Data 
+  # production Simulation. Just to make our dead data alive again..
+  #_________________________________________________________________________________________
 
-  # ---------------------------------------------------------
-  # 2. Analytics Target DB (For student use later)
-  # ---------------------------------------------------------
+
+  #  Analytics Target DB 
   postgres_analytics:
     image: postgres:17
-    container_name: olist_postgres_analytics
+    container_name: postgres_analytics
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: analytics_db
+      POSTGRES_DB: ${POSTGRES_DB_ANALYTICS}
     ports:
       - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB_ANALYTICS}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     volumes:
       - postgres_analytics_data:/var/lib/postgresql/data
     networks:
       - pg_network
 
-  # ---------------------------------------------------------
   # 3. Database Management UI
-  # ---------------------------------------------------------
-  pgadmin:
-    image: dpage/pgadmin4:8.4
-    container_name: pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
-    ports:
-      - "8080:80"
-    depends_on:
-      - postgres_oltp
-      - postgres_analytics
-    networks:
-      - pg_network
+  # Uncomment this if you want to install pgadmin in docker. You can also use your local pgadmin installation to connect to the databases.
+  # Also uncomment the pgadmin section in volumes section below.
+  # ____________________________________________________________
+  # pgadmin:
+  #   image: dpage/pgadmin4:8.4
+  #   container_name: pgadmin
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+  #     PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+  #     PGADMIN_CONFIG_SERVER_MODE: "False"
+  #     PGADMIN_CONFIG_CONSOLE_LOG_LEVEL: "30"
+      
+  #   ports:
+  #     - "8080:80"
+  #   depends_on:
+  #     - postgres_oltp
+  #     - postgres_analytics
+  #   volumes:
+  #     - pgadmin_data:/var/lib/pgadmin
+  #   networks:
+  #     - pg_network
+  # ____________________________________________________________
 
-  # ---------------------------------------------------------
   # 4. Object Storage Data Lake
-  # ---------------------------------------------------------
   minio:
     image: pgsty/minio:latest
     container_name: minio
@@ -87,6 +113,8 @@ volumes:
     driver: local
   minio_data:
     driver: local
+  # pgadmin_data:
+  #   driver: local
 
 networks:
   pg_network:

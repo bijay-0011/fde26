@@ -10,7 +10,7 @@ from config_loader import CONFIG
 # Set up logging for this module
 logger = logging.getLogger(__name__)
 
-FASTAPI_URL = CONFIG["api"]["fastapi_url"]
+FASTAPI_URL = 'http://localhost:8000'  # Ensure this matches your FastAPI server URL
 
 # Optimization: Use a Session to reuse TCP connections across thousands of requests
 http_session = requests.Session()

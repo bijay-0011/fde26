@@ -2,4 +2,6 @@
 .env
 .git
 .myenv
-__pycache__
+**/__pycache__/
+extractor
+loader

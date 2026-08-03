@@ -62,8 +62,13 @@ def receive_streaming_webhook(source_table: str, payload: WebhookPayload):
         df.to_parquet(buffer, index=False)
         buffer.seek(0)
         
-        # Structure path cleanly by source domain with high-precision timestamp to prevent collisions
-        file_name = f"{source_table}/batch_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S_%f')}.parquet"
+        # Capture the timestamp once to ensure date and time match perfectly
+        now = pd.Timestamp.now()
+        date_str = now.strftime('%Y-%m-%d')
+        time_str = now.strftime('%H%M%S_%f')
+
+        # Structure path with Hive-style date partitioning and high-precision time
+        file_name = f"{source_table}/batch_date={date_str}/batch_{time_str}.parquet"
         
         # Stream upload to MinIO
         s3_client.upload_fileobj(buffer, SHARED_BUCKET, file_name)
