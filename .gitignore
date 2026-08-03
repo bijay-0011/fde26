@@ -4,4 +4,4 @@
 .myenv
 **/__pycache__/
 extractor
-loader
+producer/data
