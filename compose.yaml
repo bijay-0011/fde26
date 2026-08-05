@@ -59,30 +59,6 @@ services:
     networks:
       - pg_network
 
-  # 3. Database Management UI
-  # Uncomment this if you want to install pgadmin in docker. You can also use your local pgadmin installation to connect to the databases.
-  # Also uncomment the pgadmin section in volumes section below.
-  # ____________________________________________________________
-  # pgadmin:
-  #   image: dpage/pgadmin4:8.4
-  #   container_name: pgadmin
-  #   environment:
-  #     PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-  #     PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
-  #     PGADMIN_CONFIG_SERVER_MODE: "False"
-  #     PGADMIN_CONFIG_CONSOLE_LOG_LEVEL: "30"
-      
-  #   ports:
-  #     - "8080:80"
-  #   depends_on:
-  #     - postgres_oltp
-  #     - postgres_analytics
-  #   volumes:
-  #     - pgadmin_data:/var/lib/pgadmin
-  #   networks:
-  #     - pg_network
-  # ____________________________________________________________
-
   # 4. Object Storage Data Lake
   minio:
     image: pgsty/minio:latest
@@ -113,8 +89,6 @@ volumes:
     driver: local
   minio_data:
     driver: local
-  # pgadmin_data:
-  #   driver: local
 
 networks:
   pg_network:

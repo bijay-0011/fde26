@@ -4,7 +4,7 @@
 # ---------------------------------------------------------
 
 simulation:
-  sim_speed: 604800  # 3600 for 1 hour in sec, 86400 for 1 day in sec , 604800 week in seconds
+  sim_speed: 3600  # 3600 for 1 hour in sec, 86400 for 1 day in sec , 604800 week in seconds
   preload_watermark: "2017-01-15 00:00:00" # Directly load data upto this timestamp into the database before starting the simulation.
   data_dir: "./producer/data"
 
